@@ -316,7 +316,7 @@ aroko-ai/
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-username/aroko-ai.git
+git clone (https://github.com/Ahmedscreativeverse/Aroko-AI.git)
 cd aroko-ai
 ```
 
