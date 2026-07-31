@@ -3,18 +3,14 @@
 export const dynamic = 'force-dynamic'
 
 import { DashboardLayout } from '@/components/dashboard-layout'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
-import { Copy, Edit, RotateCcw, Download, Share2, ChevronDown, ChevronUp, Check } from 'lucide-react'
+import { Copy, RotateCcw, Download, Share2, ChevronDown, ChevronUp, Check, ArrowLeft } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
-
-interface ResultCard {
-  id: string
-  title: string
-  content: string
-  icon: React.ReactNode
-}
+import { exportContent, type ContentData, type ExportOptions, type ExportFormat } from '@/lib/export/export-utils'
+import { Suspense } from 'react'
 
 interface GenerationContent {
   creative_brief?: string
@@ -36,166 +32,192 @@ const fadeInUp = {
   animate: { opacity: 1, y: 0 },
 }
 
-export default function ResultsPage() {
+interface ResultCard {
+  id: string
+  title: string
+  icon: string
+  content: string | string[]
+  isArray?: boolean
+}
+
+function buildResultCards(content: GenerationContent): ResultCard[] {
+  return [
+    {
+      id: 'creative-brief',
+      title: 'Creative Brief',
+      icon: '📋',
+      content: content.creative_brief || '',
+    },
+    {
+      id: 'audience-analysis',
+      title: 'Audience Analysis',
+      icon: '👥',
+      content: content.audience_analysis || '',
+    },
+    {
+      id: 'brand-voice',
+      title: 'Brand Voice',
+      icon: '🎙️',
+      content: content.brand_voice || '',
+    },
+    {
+      id: 'marketing-strategy',
+      title: 'Marketing Strategy',
+      icon: '📊',
+      content: content.marketing_strategy || '',
+    },
+    {
+      id: 'instagram',
+      title: 'Instagram Caption',
+      icon: '📱',
+      content: content.instagram_caption || '',
+    },
+    {
+      id: 'linkedin',
+      title: 'LinkedIn Post',
+      icon: '💼',
+      content: content.linkedin_post || '',
+    },
+    {
+      id: 'twitter',
+      title: 'Twitter / X Thread',
+      icon: '🐦',
+      content: content.twitter_thread || '',
+    },
+    {
+      id: 'facebook',
+      title: 'Facebook Post',
+      icon: '📘',
+      content: content.facebook_post || '',
+    },
+    {
+      id: 'cta',
+      title: 'Call to Action',
+      icon: '⚡',
+      content: content.call_to_action || '',
+    },
+    {
+      id: 'hashtags',
+      title: 'Hashtags',
+      icon: '#️⃣',
+      content: content.hashtags || [],
+      isArray: true,
+    },
+    {
+      id: 'seo',
+      title: 'SEO Keywords',
+      icon: '🔍',
+      content: content.seo_keywords || [],
+      isArray: true,
+    },
+    {
+      id: 'publishing',
+      title: 'Publishing Recommendations',
+      icon: '📅',
+      content: content.publishing_recommendations || '',
+    },
+  ].filter((card) =>
+    Array.isArray(card.content) ? card.content.length > 0 : card.content.length > 0
+  )
+}
+
+function ResultsContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set(['creative-brief']))
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [generatedContent, setGeneratedContent] = useState<GenerationContent | null>(null)
+  const [projectName, setProjectName] = useState('Generated Content Package')
 
-  // Load generated content from sessionStorage on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const stored = sessionStorage.getItem('generationResult')
+      const meta = sessionStorage.getItem('generationMeta')
       if (stored) {
         try {
-          const parsed = JSON.parse(stored)
-          setGeneratedContent(parsed)
-        } catch (e) {
-          console.error('[v0] Failed to parse generation result:', e)
+          setGeneratedContent(JSON.parse(stored))
+        } catch {
+          toast.error('Could not load generation results.')
+        }
+      }
+      if (meta) {
+        try {
+          const parsed = JSON.parse(meta)
+          if (parsed.projectName) setProjectName(parsed.projectName)
+        } catch {
+          // ignore
         }
       }
     }
   }, [])
 
   const toggleCard = (id: string) => {
-    const newExpanded = new Set(expandedCards)
-    if (newExpanded.has(id)) {
-      newExpanded.delete(id)
-    } else {
-      newExpanded.add(id)
-    }
-    setExpandedCards(newExpanded)
+    setExpandedCards((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
   }
 
-  const handleCopy = (id: string, content: string) => {
-    navigator.clipboard.writeText(content)
+  const handleCopy = (id: string, content: string | string[]) => {
+    const text = Array.isArray(content) ? content.join('\n') : content
+    navigator.clipboard.writeText(text)
     setCopiedId(id)
     toast.success('Copied to clipboard!')
     setTimeout(() => setCopiedId(null), 2000)
   }
 
-  const handleExport = (format: 'pdf' | 'markdown' | 'json' | 'text') => {
-    toast.success(`Exporting as ${format.toUpperCase()}...`)
-    // TODO: Implement actual export functionality
-    setTimeout(() => {
-      toast.success(`Exported as ${format.toUpperCase()}!`)
-    }, 1500)
+  const handleExport = (format: ExportFormat) => {
+    if (!generatedContent) {
+      toast.error('No content to export.')
+      return
+    }
+
+    const requiredKeys: (keyof ContentData)[] = [
+      'creative_brief', 'audience_analysis', 'brand_voice', 'marketing_strategy',
+      'instagram_caption', 'linkedin_post', 'twitter_thread', 'facebook_post',
+      'call_to_action', 'hashtags', 'seo_keywords', 'publishing_recommendations',
+    ]
+
+    const contentData = requiredKeys.reduce((acc, key) => {
+      const val = generatedContent[key]
+      ;(acc as any)[key] = val ?? (key === 'hashtags' || key === 'seo_keywords' ? [] : '')
+      return acc
+    }, {} as ContentData)
+
+    const options: ExportOptions = {
+      projectName,
+      idea: '',
+      industry: '',
+      targetAudience: '',
+      tone: '',
+      generatedAt: new Date(),
+    }
+
+    try {
+      exportContent(format, contentData, options)
+      toast.success(`Exported as ${format.toUpperCase()}`)
+    } catch {
+      toast.error('Export failed. Please try again.')
+    }
   }
 
-  const resultCards: ResultCard[] = [
-    {
-      id: 'creative-brief',
-      title: 'Creative Brief',
-      icon: '📋',
-      content: generatedContent?.creative_brief || `Launch Strategy: "Fintech for African Founders"
-      
-Target Market: Entrepreneurs, investors, and finance professionals across Africa
-Unique Value Proposition: First podcast dedicated to African fintech innovations
-Key Topics: Blockchain, mobile payments, regulatory landscape, success stories
-Distribution: Spotify, Apple Podcasts, YouTube
-Launch Timeline: 8 weeks`,
-    },
-    {
-      id: 'audience-analysis',
-      title: 'Audience Analysis',
-      icon: '👥',
-      content: generatedContent?.audience_analysis || `Primary Audience: African entrepreneurs (25-45 years old)
-- Average income: Mid-to-high earners
-- Tech-savvy professionals
-- Active on LinkedIn, Twitter, YouTube
+  if (!generatedContent) {
+    return (
+      <DashboardLayout>
+        <div className="min-h-screen flex items-center justify-center p-6">
+          <div className="text-center">
+            <p className="text-muted-foreground mb-6">
+              No generated content found. Create content from the AI Studio.
+            </p>
+            <Button onClick={() => router.push('/studio')}>Open AI Studio</Button>
+          </div>
+        </div>
+      </DashboardLayout>
+    )
+  }
 
-Pain Points:
-- Limited access to fintech information
-- Need for localized insights
-- Lack of African success stories
-
-Engagement Drivers:
-- Educational content
-- Real founder stories
-- Practical business tips`,
-    },
-    {
-      id: 'brand-voice',
-      title: 'Brand Voice',
-      icon: '🎙️',
-      content: generatedContent?.brand_voice || `Tone: Professional yet approachable
-Energy: Dynamic and forward-thinking
-Language: Clear, jargon-explained
-Personality: Expert mentor mixed with enthusiastic storyteller
-
-Key Messaging:
-- "Innovation has an African accent"
-- Empower through knowledge
-- Celebrate African achievements
-- Build community`,
-    },
-    {
-      id: 'marketing-strategy',
-      title: 'Marketing Strategy',
-      icon: '📊',
-      content: generatedContent?.marketing_strategy || `Phase 1 (Weeks 1-2): Teaser Campaign
-- Behind-the-scenes content
-- Guest announcements
-- Platform setup
-
-Phase 2 (Weeks 3-4): Launch Campaign
-- Episode 1 release
-- Guest interviews
-- Media coverage
-
-Phase 3 (Weeks 5-8): Growth & Engagement
-- Weekly episodes
-- Community building
-- Sponsorship partnerships`,
-    },
-    {
-      id: 'instagram-captions',
-      title: 'Instagram Captions',
-      icon: '📱',
-      content: generatedContent?.instagram_caption || `Post 1: "🚀 Something big is coming to the African tech space. Are you ready? #FinTech #Africa #Innovation"
-
-Post 2: "Meet the changemakers. Hear their stories. Subscribe to [Podcast Name] 🎙️ Link in bio #StartupStories #AfricanTech"
-
-Post 3: "From Lagos to Cairo. From Nairobi to Cape Town. We're telling the stories that matter. New episode every Wednesday 🔥 #PodcastLife"`,
-    },
-    {
-      id: 'linkedin-posts',
-      title: 'LinkedIn Posts',
-      icon: '💼',
-      content: generatedContent?.linkedin_post || `Post 1: "The African fintech landscape is evolving rapidly, but one thing has been missing: A platform for African voices. We're changing that. Launching [Podcast Name] - featuring founders, investors, and innovators shaping finance in Africa. Subscribe now."
-
-Post 2: "Why I started [Podcast Name]: After countless conversations with African fintech founders, I realized we needed a space to share knowledge, celebrate wins, and navigate challenges together. Join us as we build the narrative around African innovation."`,
-    },
-    {
-      id: 'twitter-threads',
-      title: 'Twitter Threads',
-      icon: '🐦',
-      content: generatedContent?.twitter_thread || `Thread 1:
-1/ The African fintech revolution is here 🧵
-2/ Mobile money transformed payments
-3/ But the story goes deeper than that
-4/ African founders are building the FUTURE of finance
-5/ That's why we launched [Podcast Name]
-6/ Join us as we uncover these stories
-
-Thread 2:
-1/ 5 reasons why African fintech is the next big opportunity
-2/ Demographics: Young, mobile-first population
-3/ Infrastructure: Leapfrogging traditional banking
-4/ Talent: World-class engineers and founders
-5/ Capital: Record investment flowing in
-6/ Stories: We're here to tell them 🎙️`,
-    },
-    {
-      id: 'youtube-titles',
-      title: 'YouTube Titles',
-      icon: '📹',
-      content: (generatedContent?.facebook_post || generatedContent?.call_to_action) ? `${generatedContent.call_to_action || ''}\n\nFacebook Post:\n${generatedContent.facebook_post || ''}` : `1. "The Future of African FinTech | [Founder Name] Interview"
-2. "How This African Startup is Disrupting Finance | [Company]"
-3. "Mobile Money Revolution: The African FinTech Story"
-4. "Why African Founders Are Building Better | [Podcast Episode]"
-5. "FinTech Explained: The African Perspective | [Podcast]"`,
-    },
-  ]
+  const resultCards = buildResultCards(generatedContent)
 
   return (
     <DashboardLayout>
@@ -208,10 +230,15 @@ Thread 2:
             transition={{ duration: 0.6 }}
             className="mb-8"
           >
+            <button
+              onClick={() => router.back()}
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </button>
             <h1 className="text-3xl font-bold mb-2">Generated Content Package</h1>
-            <p className="text-muted-foreground">
-              Your AI-generated creative strategy for "Launch a fintech podcast for African founders"
-            </p>
+            <p className="text-muted-foreground">{projectName}</p>
           </motion.div>
 
           {/* Action Buttons */}
@@ -221,25 +248,26 @@ Thread 2:
             transition={{ duration: 0.6, delay: 0.1 }}
             className="flex flex-wrap gap-3 mb-8"
           >
-            <Button 
-              className="gap-2"
-              onClick={() => handleExport('pdf')}
-            >
+            <Button className="gap-2" onClick={() => handleExport('pdf')}>
               <Download className="h-4 w-4" />
-              Export as PDF
+              Export PDF
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="gap-2"
-              onClick={() => toast.info('Share feature coming soon!')}
+              onClick={() => {
+                const url = window.location.href
+                navigator.clipboard.writeText(url)
+                toast.success('Link copied to clipboard!')
+              }}
             >
               <Share2 className="h-4 w-4" />
               Share
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="gap-2"
-              onClick={() => toast.info('Regenerate feature coming soon!')}
+              onClick={() => router.back()}
             >
               <RotateCcw className="h-4 w-4" />
               Regenerate
@@ -250,13 +278,16 @@ Thread 2:
           <div className="space-y-4">
             {resultCards.map((card, i) => {
               const isExpanded = expandedCards.has(card.id)
+              const contentText = Array.isArray(card.content)
+                ? card.content.join('\n')
+                : card.content
 
               return (
                 <motion.div
                   key={card.id}
                   initial={fadeInUp.initial}
                   animate={fadeInUp.animate}
-                  transition={{ delay: i * 0.05 }}
+                  transition={{ delay: i * 0.04 }}
                   className="border border-border bg-card rounded-xl overflow-hidden hover:border-muted-foreground transition-colors"
                 >
                   {/* Card Header */}
@@ -269,62 +300,63 @@ Thread 2:
                       <h3 className="font-semibold">{card.title}</h3>
                     </div>
                     {isExpanded ? (
-                      <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                      <ChevronUp className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                     ) : (
-                      <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                      <ChevronDown className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                     )}
                   </button>
 
                   {/* Card Content */}
-                  {isExpanded && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="border-t border-border"
-                    >
-                      <div className="px-6 py-4 space-y-4">
-                        <div className="prose prose-invert max-w-none">
-                          <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
-                            {card.content}
-                          </p>
-                        </div>
+                  <AnimatePresence>
+                    {isExpanded && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.25 }}
+                        className="border-t border-border"
+                      >
+                        <div className="px-6 py-4 space-y-4">
+                          {card.isArray && Array.isArray(card.content) ? (
+                            <div className="flex flex-wrap gap-2">
+                              {card.content.map((item, idx) => (
+                                <span
+                                  key={idx}
+                                  className="px-3 py-1 rounded-full border border-border bg-secondary text-sm text-muted-foreground"
+                                >
+                                  {item}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                              {contentText}
+                            </p>
+                          )}
 
-                        {/* Card Actions */}
-                        <div className="flex flex-wrap gap-2 pt-4 border-t border-border/50">
-                          <button
-                            onClick={() => handleCopy(card.id, card.content)}
-                            className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-border hover:border-muted-foreground hover:bg-secondary/50 transition-colors text-xs font-medium text-muted-foreground hover:text-foreground"
-                          >
-                            {copiedId === card.id ? (
-                              <>
-                                <span className="h-4 w-4">✓</span>
-                                Copied
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="h-4 w-4" />
-                                Copy
-                              </>
-                            )}
-                          </button>
-                          <button className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-border hover:border-muted-foreground hover:bg-secondary/50 transition-colors text-xs font-medium text-muted-foreground hover:text-foreground">
-                            <Edit className="h-4 w-4" />
-                            Edit
-                          </button>
-                          <button className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-border hover:border-muted-foreground hover:bg-secondary/50 transition-colors text-xs font-medium text-muted-foreground hover:text-foreground">
-                            <RotateCcw className="h-4 w-4" />
-                            Regenerate
-                          </button>
-                          <button className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-border hover:border-muted-foreground hover:bg-secondary/50 transition-colors text-xs font-medium text-muted-foreground hover:text-foreground">
-                            <Download className="h-4 w-4" />
-                            Download
-                          </button>
+                          {/* Card Actions */}
+                          <div className="flex flex-wrap gap-2 pt-4 border-t border-border/50">
+                            <button
+                              onClick={() => handleCopy(card.id, card.content)}
+                              className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-border hover:border-muted-foreground hover:bg-secondary/50 transition-colors text-xs font-medium text-muted-foreground hover:text-foreground"
+                            >
+                              {copiedId === card.id ? (
+                                <>
+                                  <Check className="h-4 w-4" />
+                                  Copied
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="h-4 w-4" />
+                                  Copy
+                                </>
+                              )}
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    </motion.div>
-                  )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </motion.div>
               )
             })}
@@ -337,9 +369,9 @@ Thread 2:
             transition={{ duration: 0.6, delay: 0.3 }}
             className="mt-12 p-8 rounded-xl border border-border bg-card"
           >
-            <h3 className="font-semibold mb-4">Export Your Package</h3>
+            <h3 className="font-semibold mb-2">Export Your Package</h3>
             <p className="text-sm text-muted-foreground mb-6">
-              Download your complete content strategy in your preferred format
+              Download your complete content strategy in your preferred format.
             </p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
@@ -362,5 +394,19 @@ Thread 2:
         </div>
       </div>
     </DashboardLayout>
+  )
+}
+
+export default function ResultsPage() {
+  return (
+    <Suspense fallback={
+      <DashboardLayout>
+        <div className="min-h-screen flex items-center justify-center">
+          <p className="text-muted-foreground">Loading results...</p>
+        </div>
+      </DashboardLayout>
+    }>
+      <ResultsContent />
+    </Suspense>
   )
 }

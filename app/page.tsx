@@ -74,9 +74,11 @@ export default function LandingPage() {
                 Start Creating <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
-            <Button variant="outline" size="lg">
-              Watch Demo
-            </Button>
+            <Link href="#features">
+              <Button variant="outline" size="lg">
+                See Features
+              </Button>
+            </Link>
           </motion.div>
 
           {/* AI Pipeline Animation */}
@@ -121,7 +123,7 @@ export default function LandingPage() {
       </section>
 
       {/* Features Section */}
-      <section className="py-20 px-6 border-t border-border">
+      <section id="features" className="py-20 px-6 border-t border-border">
         <div className="mx-auto max-w-6xl">
           <motion.div
             initial={{ opacity: 0 }}

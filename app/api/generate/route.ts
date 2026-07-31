@@ -308,13 +308,14 @@ export async function POST(request: NextRequest) {
 
     if (versionError) throw versionError
 
-    // Log generation history
+    // Log generation history (including prompt_used for the history page)
     const { error: historyError } = await supabase
       .from('generation_history')
       .insert({
         user_id: user.id,
         project_id: data.projectId,
         version_id: version.id,
+        prompt_used: data.idea,
         tokens_used: tokens,
         generation_time_ms: generationTimeMs,
         status: 'completed',

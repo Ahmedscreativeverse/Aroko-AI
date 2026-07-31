@@ -1,9 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { LogOut, BarChart3, History, BookOpen, Sparkles, Download, Settings, HelpCircle, LayoutDashboard } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useLogout } from '@/lib/auth/auth-hooks'
+import { toast } from 'sonner'
 
 interface SidebarProps {
   isOpen?: boolean
@@ -11,6 +13,8 @@ interface SidebarProps {
 
 export function Sidebar({ isOpen = true }: SidebarProps) {
   const pathname = usePathname()
+  const router = useRouter()
+  const logoutMutation = useLogout()
 
   const menuItems = [
     {
@@ -58,17 +62,27 @@ export function Sidebar({ isOpen = true }: SidebarProps) {
     },
   ]
 
+  const handleLogout = async () => {
+    try {
+      await logoutMutation.mutateAsync()
+      toast.success('Logged out successfully')
+      router.push('/')
+    } catch {
+      toast.error('Failed to log out')
+    }
+  }
+
   return (
     <aside
       className={cn(
-        'fixed left-0 top-0 h-screen border-r border-border bg-sidebar transition-all duration-300',
-        isOpen ? 'w-64' : 'w-0 -translate-x-full'
+        'fixed left-0 top-0 h-screen border-r border-border bg-sidebar transition-all duration-300 z-40',
+        isOpen ? 'w-64' : 'w-0 -translate-x-full overflow-hidden'
       )}
     >
       <div className="flex h-full flex-col">
         {/* Logo */}
         <div className="border-b border-border px-6 py-8">
-          <Link href="/" className="inline-block">
+          <Link href="/dashboard" className="inline-block">
             <h1 className="text-2xl font-bold tracking-tight text-foreground">
               Aroko
               <span className="text-xs font-normal opacity-75"> AI</span>
@@ -77,10 +91,10 @@ export function Sidebar({ isOpen = true }: SidebarProps) {
         </div>
 
         {/* Main Navigation */}
-        <nav className="flex-1 space-y-2 px-4 py-6">
+        <nav className="flex-1 space-y-1 px-4 py-6">
           {menuItems.map((item) => {
             const Icon = item.icon
-            const isActive = pathname === item.href
+            const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
 
             return (
               <Link
@@ -101,7 +115,7 @@ export function Sidebar({ isOpen = true }: SidebarProps) {
         </nav>
 
         {/* Bottom Navigation */}
-        <div className="space-y-2 border-t border-border px-4 py-4">
+        <div className="space-y-1 border-t border-border px-4 py-4">
           {bottomItems.map((item) => {
             const Icon = item.icon
             const isActive = pathname === item.href
@@ -125,10 +139,12 @@ export function Sidebar({ isOpen = true }: SidebarProps) {
 
           {/* Logout */}
           <button
-            className="flex w-full items-center gap-3 rounded-md px-4 py-3 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent/50"
+            onClick={handleLogout}
+            disabled={logoutMutation.isPending}
+            className="flex w-full items-center gap-3 rounded-md px-4 py-3 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent/50 disabled:opacity-50"
           >
             <LogOut className="h-5 w-5 flex-shrink-0" />
-            <span>Logout</span>
+            <span>{logoutMutation.isPending ? 'Logging out...' : 'Logout'}</span>
           </button>
         </div>
       </div>

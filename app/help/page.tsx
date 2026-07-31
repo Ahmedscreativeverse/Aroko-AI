@@ -124,12 +124,28 @@ export default function HelpPage() {
             className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12"
           >
             {[
-              { icon: '📚', title: 'Documentation', description: 'Read our guides' },
-              { icon: '🎥', title: 'Video Tutorials', description: 'Learn by watching' },
-              { icon: '💬', title: 'Contact Support', description: 'Get in touch' },
+              {
+                icon: '📚',
+                title: 'Getting Started',
+                description: 'See step-by-step guide',
+                action: () => setSelectedCategory('Getting Started'),
+              },
+              {
+                icon: '⚙️',
+                title: 'Features',
+                description: 'Explore all features',
+                action: () => setSelectedCategory('Features'),
+              },
+              {
+                icon: '🔒',
+                title: 'Account Help',
+                description: 'Manage your account',
+                action: () => setSelectedCategory('Account'),
+              },
             ].map((link, i) => (
               <motion.button
                 key={i}
+                onClick={link.action}
                 initial={fadeInUp.initial}
                 animate={fadeInUp.animate}
                 transition={{ delay: i * 0.05 }}
@@ -221,12 +237,18 @@ export default function HelpPage() {
             <MessageSquare className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
             <h3 className="text-xl font-semibold mb-2">Still need help?</h3>
             <p className="text-muted-foreground mb-6">
-              Our support team is here to help. Reach out anytime, we typically respond within 1 hour.
+              Open a GitHub issue or reach out via email for support.
             </p>
-            <Button className="gap-2">
-              <MessageSquare className="h-4 w-4" />
-              Contact Support
-            </Button>
+            <a
+              href="https://github.com/Ahmedscreativeverse/Aroko-AI/issues"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Button className="gap-2">
+                <MessageSquare className="h-4 w-4" />
+                Open Support Issue
+              </Button>
+            </a>
           </motion.div>
         </div>
       </div>

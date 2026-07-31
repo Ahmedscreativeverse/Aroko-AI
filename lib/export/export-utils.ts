@@ -26,6 +26,26 @@ export interface ExportOptions {
   generatedAt: Date
 }
 
+// Track export in sessionStorage for the Exports page
+function trackExport(format: ExportFormat): void {
+  if (typeof window === 'undefined') return
+  try {
+    const existing = sessionStorage.getItem('exportRecords')
+    const records = existing ? JSON.parse(existing) : []
+    records.unshift({
+      id: Date.now().toString(),
+      format,
+      size: '',
+      createdAt: new Date().toISOString(),
+      projectId: '',
+    })
+    // Keep only the most recent 20 records
+    sessionStorage.setItem('exportRecords', JSON.stringify(records.slice(0, 20)))
+  } catch {
+    // ignore
+  }
+}
+
 // Export to PDF
 export function exportToPDF(content: ContentData, options: ExportOptions): void {
   const doc = new jsPDF()
@@ -88,6 +108,7 @@ export function exportToPDF(content: ContentData, options: ExportOptions): void 
 
   // Download
   doc.save(`${options.projectName}-content.pdf`)
+  trackExport('pdf')
 }
 
 // Export to Markdown
@@ -115,6 +136,7 @@ export function exportToMarkdown(content: ContentData, options: ExportOptions): 
   markdown += `## Publishing Recommendations\n${content.publishing_recommendations}\n`
 
   downloadFile(markdown, `${options.projectName}-content.md`, 'text/markdown')
+  trackExport('markdown')
 }
 
 // Export to JSON
@@ -129,6 +151,7 @@ export function exportToJSON(content: ContentData, options: ExportOptions): void
   )
 
   downloadFile(json, `${options.projectName}-content.json`, 'application/json')
+  trackExport('json')
 }
 
 // Export to plain text
@@ -156,6 +179,7 @@ export function exportToText(content: ContentData, options: ExportOptions): void
   text += `PUBLISHING RECOMMENDATIONS\n${'='.repeat(20)}\n${content.publishing_recommendations}\n`
 
   downloadFile(text, `${options.projectName}-content.txt`, 'text/plain')
+  trackExport('text')
 }
 
 // Generic file download helper

@@ -13,7 +13,6 @@ const geistMono = Geist_Mono({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'Aroko AI - One Idea. Infinite Content.',
   description: 'Transform one creative idea into a complete AI-generated content production package. Creative studio powered by IBM Granite AI.',
-  generator: 'v0.app',
   openGraph: {
     title: 'Aroko AI - One Idea. Infinite Content.',
     description: 'AI-powered creative studio for content production',

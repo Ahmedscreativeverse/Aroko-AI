@@ -139,17 +139,20 @@ export default function StudioPage() {
       })
 
       toast.success('Content generated successfully! Redirecting to results...')
-      
-      // Store results in sessionStorage for the results page
+
+      // Store results and metadata in sessionStorage for the results page
       sessionStorage.setItem('generationResult', JSON.stringify(result.content))
-      
+      sessionStorage.setItem(
+        'generationMeta',
+        JSON.stringify({ projectName: project?.name || idea.trim().slice(0, 60) })
+      )
+
       // Redirect to results page
       setTimeout(() => {
         router.push('/results')
       }, 1500)
 
     } catch (error) {
-      console.error('[v0] Generation error:', error)
       const message = error instanceof Error ? error.message : 'Generation failed'
       setStatus({
         phase: 'idle',

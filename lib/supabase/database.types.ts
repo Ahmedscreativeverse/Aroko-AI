@@ -39,28 +39,6 @@ export type Database = {
         }
         Relationships: []
       }
-        Insert: {
-          id: string
-          email: string
-          full_name?: string | null
-          avatar_url?: string | null
-          plan?: string
-          notification_preferences?: Record<string, boolean>
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          email?: string
-          full_name?: string | null
-          avatar_url?: string | null
-          plan?: string
-          notification_preferences?: Record<string, boolean>
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       projects: {
         Row: {
           id: string

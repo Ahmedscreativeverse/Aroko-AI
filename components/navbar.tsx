@@ -2,13 +2,12 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Bell, Search, Menu, LogOut, Settings } from 'lucide-react'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
+import { Bell, Search, Menu } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useLogout } from '@/lib/auth/auth-hooks'
 import { useAuth } from '@/lib/auth/auth-context'
+import { useLogout } from '@/lib/auth/auth-hooks'
 import { toast } from 'sonner'
+import { Settings, LogOut } from 'lucide-react'
 
 interface NavbarProps {
   onMenuClick?: () => void
@@ -62,14 +61,23 @@ export function Navbar({ onMenuClick, isSidebarOpen = true }: NavbarProps) {
 
           {/* Search Bar */}
           <div className="flex-1 max-w-sm">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Search projects..."
-                className="pl-10 bg-secondary border-border text-sm"
-              />
-            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                const q = (e.currentTarget.elements.namedItem('q') as HTMLInputElement)?.value.trim()
+                if (q) router.push(`/projects?search=${encodeURIComponent(q)}`)
+              }}
+            >
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  name="q"
+                  type="search"
+                  placeholder="Search projects..."
+                  className="h-8 w-full rounded-lg border border-input bg-secondary px-2.5 py-1 pl-10 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                />
+              </div>
+            </form>
           </div>
         </div>
 
@@ -140,6 +148,4 @@ export function Navbar({ onMenuClick, isSidebarOpen = true }: NavbarProps) {
     </nav>
   )
 }
-
-
 

@@ -179,26 +179,6 @@ export default function SignupPage() {
           </Button>
         </form>
 
-        {/* Divider */}
-        <div className="relative my-8">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-border"></div>
-          </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-background text-muted-foreground">or sign up with</span>
-          </div>
-        </div>
-
-        {/* Social Signup */}
-        <div className="grid grid-cols-2 gap-4">
-          <Button variant="outline" size="lg">
-            Google
-          </Button>
-          <Button variant="outline" size="lg">
-            GitHub
-          </Button>
-        </div>
-
         {/* Login Link */}
         <p className="text-center text-sm text-muted-foreground mt-8">
           Already have an account?{' '}

@@ -2,28 +2,33 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { CreateProjectModal, type ProjectFormData } from '@/components/create-project-modal'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Plus, MoreHorizontal, Trash2, Copy } from 'lucide-react'
 import { toast } from 'sonner'
-import { useState } from 'react'
 import { useAuth } from '@/lib/auth/auth-context'
-import { useCreateProject, useDeleteProject, useProjects } from '@/lib/projects/project-hooks'
+import { useCreateProject, useDeleteProject, useProjects, useSearchProjects } from '@/lib/projects/project-hooks'
 import { formatRelativeTime, projectStatusLabel } from '@/lib/utils'
+import type { Database } from '@/lib/supabase/database.types'
+
+type Project = Database['public']['Tables']['projects']['Row']
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
   animate: { opacity: 1, y: 0 },
 }
 
-export default function ProjectsPage() {
+function ProjectsContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user, loading: authLoading } = useAuth()
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const initialSearch = searchParams.get('search') ?? ''
+  const [searchQuery, setSearchQuery] = useState(initialSearch)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -39,10 +44,12 @@ export default function ProjectsPage() {
     fetchNextPage,
     isFetchingNextPage,
   } = useProjects(user?.id)
+  const { data: searchResults } = useSearchProjects(user?.id, searchQuery)
   const createProject = useCreateProject()
   const deleteProject = useDeleteProject()
 
-  const projects = data?.pages.flatMap((page) => page.projects) ?? []
+  const allProjects: Project[] = data?.pages.flatMap((page) => page.projects) ?? []
+  const projects: Project[] = searchQuery.trim() ? (searchResults ?? []) : allProjects
 
   const handleCreateProject = async (formData: ProjectFormData) => {
     if (!user) return
@@ -137,21 +144,22 @@ export default function ProjectsPage() {
             </Button>
           </motion.div>
 
-          {/* Filters and Sort */}
+          {/* Search and Filters */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.05 }}
-            className="flex flex-wrap gap-3 mb-8"
+            className="flex flex-wrap items-center gap-3 mb-8"
           >
-            {['All', 'Generated', 'In Progress', 'Failed'].map((filter) => (
-              <button
-                key={filter}
-                className="px-4 py-2 rounded-lg border border-border hover:border-muted-foreground text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {filter}
-              </button>
-            ))}
+            <div className="relative flex-1 min-w-48">
+              <input
+                type="search"
+                placeholder="Search projects..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-9 w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              />
+            </div>
           </motion.div>
 
           {isLoading && (
@@ -299,5 +307,19 @@ export default function ProjectsPage() {
         onSubmit={handleCreateProject}
       />
     </DashboardLayout>
+  )
+}
+
+export default function ProjectsPage() {
+  return (
+    <Suspense fallback={
+      <DashboardLayout>
+        <div className="min-h-screen p-6 md:p-8 text-center text-muted-foreground pt-32">
+          Loading projects...
+        </div>
+      </DashboardLayout>
+    }>
+      <ProjectsContent />
+    </Suspense>
   )
 }
